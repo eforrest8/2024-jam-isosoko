@@ -1,4 +1,4 @@
 nimbledeps/
 *.exe
 *.dll
-README-SDL.txt
+/README-SDL.txt
