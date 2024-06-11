@@ -1,4 +1,5 @@
-import isosoko/render
+import isosoko/sdl
 
 when isMainModule:
-    main()
+    # any pre-SDL stuff happens here
+    start()
