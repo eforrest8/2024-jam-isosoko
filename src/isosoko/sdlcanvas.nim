@@ -4,13 +4,12 @@ import globals
 
 type
   SDLCanvas* = object
-    buffer*: SwappableBuffer[CANVAS_WIDTH * CANVAS_HEIGHT]
+    buffer*: ptr PixBuf[CANVAS_WIDTH * CANVAS_HEIGHT]
     texture*: TexturePtr
     renderer*: RendererPtr
     window*: WindowPtr
-    swap*: proc(self: var SDLCanvas)
 
-proc initCanvas*(): SDLCanvas =
+proc initCanvas*(): ptr SDLCanvas =
   let window = createWindow(
     "test",
     SDL_WINDOWPOS_CENTERED,
@@ -26,14 +25,18 @@ proc initCanvas*(): SDLCanvas =
     CANVAS_WIDTH,
     CANVAS_HEIGHT
   )
-  return SDLCanvas(
+  let canvas = createShared(SDLCanvas)
+  canvas[] = SDLCanvas(
+    buffer: createShared PixBuf[CANVAS_WIDTH * CANVAS_HEIGHT],
     renderer: renderer,
     texture: texture,
-    window: window,
-    swap: proc (s: var SDLCanvas) = swap s.buffer
+    window: window
   )
+  return canvas
 
-proc destroyCanvas*(self: SDLCanvas): void =
+proc destroyCanvas*(self: ptr SDLCanvas): void =
   destroyTexture self.texture
   destroyRenderer self.renderer
   destroyWindow self.window
+  deallocShared self[].buffer
+  deallocShared self

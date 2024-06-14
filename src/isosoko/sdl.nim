@@ -2,22 +2,31 @@ import sdl2
 import sdlcanvas
 import globals
 import logging
-import task
 import render
+import os
+import malebolgia
 
-proc handleEvents(canvas: SDLCanvas): void =
+let FrameEvent: uint32 = registerEvents(1)
+
+addHandler newConsoleLogger()
+
+proc handleEvents(canvas: ptr SDLCanvas): void =
+  var m = createMaster()
   var go = true
   while go:
     var event: Event
-    while waitEvent(event):
+    if waitEvent(event):
+      #debug event
       case event.kind:
         of QuitEvent:
           go = false
+        of UserEvent:
+          m.spawn drawScene()
+          updateTexture(canvas[].texture, nil, canvas[].buffer, CANVAS_WIDTH * PIXEL_SIZE)
+          clear(canvas[].renderer)
+          copy(canvas[].renderer, canvas[].texture, nil, nil)
+          present(canvas.renderer)
         else: discard
-    updateTexture(canvas.texture, nil, addr canvas.buffer.front, CANVAS_WIDTH * PIXEL_SIZE)
-    clear(canvas.renderer)
-    copy(canvas.renderer, canvas.texture, nil, nil)
-    present(canvas.renderer)
 
 proc start*(): void =
   var version: SDL_Version
@@ -28,10 +37,20 @@ proc start*(): void =
     return
   info "SDL init suceeded"
   var canvas = initCanvas()
-  var sren = SoftRenderer(canvas: canvas)
-  var drawTask = schedule(33, drawScene, sren)
+  setSren SoftRenderer(buffer: canvas[].buffer)
+  var drawThread: Thread[ptr bool]
+  let drawActive = create bool
+  drawActive[] = true
+  proc scheduleDraw(active: ptr bool): void {.thread, nimcall.}=
+    while active[]:
+      sleep(33)
+      discard pushEvent(createFrameEvent())
+  createThread(drawThread, scheduleDraw, drawActive)
   handleEvents canvas # runs until quit
-  await drawTask
   destroyCanvas canvas
+  cleanupGlobals()
+  drawActive[] = false
+  joinThread drawThread
+  dealloc drawActive
   info "canvas destroyed"
   sdl2.quit()

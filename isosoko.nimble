@@ -13,4 +13,5 @@ namedBin["main"] = "isosoko"
 
 requires "nim >= 2.0.0"
 requires "sdl2"
+requires "winim"
 requires "malebolgia"
