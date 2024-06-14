@@ -20,7 +20,7 @@ proc initCanvas*(): ptr SDLCanvas =
   let renderer = createRenderer(window, -1, 0)
   let texture = createTexture(
     renderer,
-    SDL_PIXELFORMAT_ARGB8888,
+    SDL_PIXELFORMAT_RGB888,
     SDL_TEXTUREACCESS_STREAMING,
     CANVAS_WIDTH,
     CANVAS_HEIGHT

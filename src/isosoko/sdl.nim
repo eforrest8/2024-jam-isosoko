@@ -6,9 +6,14 @@ import render
 import os
 import malebolgia
 
+addHandler newConsoleLogger()
+
 let FrameEvent: uint32 = registerEvents(1)
 
-addHandler newConsoleLogger()
+proc createFrameEvent(): ptr Event =
+  let ev: UserEventPtr = create UserEventObj
+  ev[].kind = UserEvent
+  return cast [ptr Event](ev)
 
 proc handleEvents(canvas: ptr SDLCanvas): void =
   var m = createMaster()
