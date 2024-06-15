@@ -8,11 +8,16 @@ import malebolgia
 
 addHandler newConsoleLogger()
 
-let FrameEvent: uint32 = registerEvents(1)
+type
+  UserEventType = enum
+    FrameEvent, PhysicsEvent
 
-proc createFrameEvent(): ptr Event =
+let userEventKind = registerEvents(1)
+
+proc createUserEvent(code: UserEventType): ptr Event =
   let ev: UserEventPtr = create UserEventObj
-  ev[].kind = UserEvent
+  ev[].kind = EventType(userEventKind)
+  ev[].code = int32(code)
   return cast [ptr Event](ev)
 
 proc handleEvents(canvas: ptr SDLCanvas): void =
@@ -26,11 +31,18 @@ proc handleEvents(canvas: ptr SDLCanvas): void =
         of QuitEvent:
           go = false
         of UserEvent:
-          m.spawn drawScene()
-          updateTexture(canvas[].texture, nil, canvas[].buffer, CANVAS_WIDTH * PIXEL_SIZE)
-          clear(canvas[].renderer)
-          copy(canvas[].renderer, canvas[].texture, nil, nil)
-          present(canvas.renderer)
+          let uev: UserEventObj = cast[UserEventPtr](addr event)[]
+          case uev.code:
+            of int32(FrameEvent):
+              m.spawn drawScene()
+              updateTexture(canvas[].texture, nil, canvas[].buffer, CANVAS_WIDTH * PIXEL_SIZE)
+              clear(canvas[].renderer)
+              copy(canvas[].renderer, canvas[].texture, nil, nil)
+              present(canvas.renderer)
+            of int32(PhysicsEvent):
+              discard
+            else:
+              debug "Received invalid UserEvent! data: ", uev
         else: discard
 
 proc start*(): void =
@@ -49,13 +61,23 @@ proc start*(): void =
   proc scheduleDraw(active: ptr bool): void {.thread, nimcall.}=
     while active[]:
       sleep(33)
-      discard pushEvent(createFrameEvent())
+      discard pushEvent(createUserEvent(FrameEvent))
+  var tickThread: Thread[ptr int]
+  let tickRate = create int
+  tickRate[] = 50
+  proc scheduleTick(rate: ptr int): void {.thread, nimcall.}=
+    while rate[] > 0:
+      sleep(rate[])
+      discard pushEvent(createUserEvent(PhysicsEvent))
   createThread(drawThread, scheduleDraw, drawActive)
+  createThread(tickThread, scheduleTick, tickRate)
   handleEvents canvas # runs until quit
   destroyCanvas canvas
   cleanupGlobals()
   drawActive[] = false
   joinThread drawThread
   dealloc drawActive
+  joinThread tickThread
+  dealloc tickRate
   info "canvas destroyed"
   sdl2.quit()
