@@ -1,4 +1,3 @@
-#import logging
 import globals
 import buffers
 import atomics
@@ -26,10 +25,8 @@ proc drawScene*(): void =
     let y = i / CANVAS_WIDTH / CANVAS_HEIGHT
     pixels[][i] = uint32(0xff000000 or
       #int(rotateLeftBits(uint(sren[].currentFrame) + uint((1-x)*255), 24)) or
-      int(rotateLeftBits(uint(sren[].currentFrame) + uint(x*255), 16)) or
-      int(rotateLeftBits(uint(sren[].currentFrame) + uint(y*255), 8)) or
-      int(rotateLeftBits(uint(sren[].currentFrame) + uint(((1-y)+(1-x))/2*255), 0))
+      int(rotateLeftBits(uint(tick[]) + uint(x*255), 16)) or
+      int(rotateLeftBits(uint(tick[]) + uint(y*255), 8)) or
+      int(rotateLeftBits(uint(tick[]) + uint(((1-y)+(1-x))/2*255), 0))
     )
-  inc sren[].currentFrame
-  if sren[].currentFrame > 255: sren[].currentFrame = 0
   sren[].renderLock.clear()

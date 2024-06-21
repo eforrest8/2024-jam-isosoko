@@ -11,7 +11,7 @@ type
   Entity* = tuple[id: EntityId, components: Table[ComponentKind, ComponentId]]
   State = tuple[entities: Bucket[Entity], components: ComponentTable]
 
-var activeState: State
+var activeState: State = (entities: Bucket[Entity](), components: ComponentTable())
 
 iterator componentsOfKind*(kind: ComponentKind): ComponentPtr =
   for e in activeState.components.getOrDefault(kind).items:
@@ -35,3 +35,7 @@ proc createEntity*(): EntityId =
 proc addComponent*(ent: EntityId, kind: ComponentKind, comp: object): void =
   let id = activeState.components.hasKeyOrPut(kind, Bucket[ComponentPtr]()).incl(addr comp)
   activeState.entities[ent].components.add(kind, id)
+
+#when isMainModule:
+#  doAssert createEntity() == activeState.entities.low
+#  doAssert createEntity() == activeState.entities.low+1

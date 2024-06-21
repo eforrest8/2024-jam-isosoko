@@ -2,7 +2,7 @@ import sdl2
 import sdlcanvas
 import globals
 import logging
-import render
+import render2
 import os
 import malebolgia
 
@@ -40,7 +40,8 @@ proc handleEvents(canvas: ptr SDLCanvas): void =
               copy(canvas[].renderer, canvas[].texture, nil, nil)
               present(canvas.renderer)
             of int32(PhysicsEvent):
-              discard
+              inc tick[]
+              if tick[] > 999: tick[] = 0
             else:
               debug "Received invalid UserEvent! data: ", uev
         else: discard
@@ -64,7 +65,7 @@ proc start*(): void =
       discard pushEvent(createUserEvent(FrameEvent))
   var tickThread: Thread[ptr int]
   let tickRate = create int
-  tickRate[] = 50
+  tickRate[] = 10
   proc scheduleTick(rate: ptr int): void {.thread, nimcall.}=
     while rate[] > 0:
       sleep(rate[])
@@ -79,5 +80,6 @@ proc start*(): void =
   dealloc drawActive
   joinThread tickThread
   dealloc tickRate
+  deallocShared tick
   info "canvas destroyed"
   sdl2.quit()

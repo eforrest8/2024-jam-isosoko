@@ -3,29 +3,31 @@
   assigns and reclaims indices when items are added or removed.
 ]#
 import std/setutils
+import sillysets
 import tables
+import options
 
 type
-  Bucket*[T] = object
-    available: set[int16] = fullSet int16
-    elements: Table[int16, T]
+  Bucket*[T: ref] = object
+    available: set[uint16] = fullSet uint16
+    elements: var array[uint16.high, T]
 
-proc incl*(self: Bucket, e: ref Bucket.T): int16 =
-  let nextIndex = self.available.items[0]
+proc incl*[T](self: Bucket[T], e: T): uint16 =
+  let nextIndex = self.available.highestElement().get()
   self.elements.add(nextIndex, e)
   self.available.excl nextIndex
   return nextIndex
 
-proc pop*(self: Bucket, index: int16): Bucket.T =
+proc pop*(self: Bucket, index: uint16): Bucket.T =
   result = self.elements.pop index
   self.available.incl index
   return result
 
-proc del*(self: Bucket, index: int16): void =
+proc del*(self: Bucket, index: uint16): void =
   self.elements.del index
   self.available.incl index
 
-proc `[]`*(self: Bucket, index: int16): Bucket.T =
+proc `[]`*(self: Bucket, index: uint16): Bucket.T =
   return self.elements[index]
 
 iterator items*(self: Bucket): Bucket.T =
@@ -35,3 +37,8 @@ iterator items*(self: Bucket): Bucket.T =
 iterator pairs*(self: Bucket): Bucket.T =
   for e in pairs self.elements:
     yield e
+
+when isMainModule:
+  var b = Bucket[ref int]()
+  let val: ref int = new(int)
+  doAssert b.incl(val) == b.available.low
