@@ -9,7 +9,7 @@ type
   Color = tuple[a, r, g, b: uint8]
   Vec2[T] = tuple[x, y: T]
   TexPoint2d = Vec2[float]
-  WorldPoint2d = Vec2[int]
+  PixelPoint2d = Vec2[int]
   Rectangle = tuple[x, y, w, h: int]
   AffineMatrix2d = array[6, float]
   Transform = proc (p: TexPoint2d, arg: auto): TexPoint2d
@@ -23,12 +23,29 @@ func toARGB(self: Color): uint32 =
     bitor(rotateLeftBits(uint32(self.g), 8)).
     bitor(uint32(self.b))
 
-proc toTexPoint2d(p: WorldPoint2d, bounds: Rectangle): TexPoint2d =
+proc toTexPoint2d(p: PixelPoint2d, bounds: Rectangle): TexPoint2d =
   return (x: float(p.x - bounds.x) / float(bounds.w), y: float(p.y - bounds.y) / float(bounds.h))
 
-### cross product
 func cross(v, w: Vec2[float]): float =
   v.x * w.y - v.y * w.x
+
+func dot(v, w: Vec2[float]): float =
+  v.x * w.x + v.y * w.y
+
+func almostEqual(v, w: Vec2[float]): bool =
+  almostEqual(v.x, w.x) and almostEqual(v.y, w.y)
+
+func abs[T](v: Vec2[T]): T =
+  (x: abs v.x, y: abs v.y)
+
+func magnitude[T](v: Vec2[T]): T =
+  sqrt(v.x*v.x + v.y*v.y)
+
+func rotate[T](v: Vec2[T], theta: float): Vec2[T] =
+  (x: cos(theta)*v.x - sin(theta)*v.y, y: sin(theta)*v.x + cos(theta)*v.y)
+
+func shearX[T](v: Vec2[T], phi: float): Vec2[T] =
+  (x: cos(phi)*v.x - sin(phi)*v.y, y: v.y)
 
 func `+`[T](v, w: Vec2[T]): Vec2[T] =
   (x: v.x + w.x, y: v.y + w.y)
@@ -45,11 +62,11 @@ func `*`[T](v, w: Vec2[T]): Vec2[T] =
 func `/`[T](v, w: Vec2[T]): Vec2[T] =
   (x: v.x / w.x, y: v.y / w.y)
 
-func within(p: WorldPoint2d, b: Rectangle): bool =
+func within(p: Vec2[SomeNumber], b: Rectangle): bool =
   return p.x >= b.x and p.x < b.x + b.w and p.y >= b.y and p.y < b.y + b.h
 
-func within(p: TexPoint2d, b: Rectangle): bool =
-  return p.x >= float(b.x) and p.x < float(b.x + b.w) and p.y >= float(b.y) and p.y < float(b.y + b.h)
+func withinUnit(p: Vec2[SomeNumber]): bool =
+  within(p, UNIT)
 
 func affineTransform(p: TexPoint2d, arg: AffineMatrix2d): TexPoint2d =
   return (x: p.x*arg[0] + p.y*arg[1] + arg[2], y: p.x*arg[3] + p.y*arg[4] + arg[5])
@@ -119,12 +136,21 @@ func isPointInTriangle(c1,c2,c3,p: Vec2[float]): bool =
   let c = 1 - a - b
   return 0 <= a and a <= 1 and 0 <= b and b <= 1 and 0 <= c and c <= 1
 
-proc drawTile(p: WorldPoint2d): Color =
-  let theta = (2*PI) * (float(tick[]) / 999)
+func toParallelQuadSpace(p, origin, ver, hor, opposite: Vec2[SomeNumber]): Vec2[SomeNumber] =
+  # find the transforms which relate the quad to the unit square
+  # and then apply their inverse to the given point
+  # rotation of horizontal line relative to X axis
+  let theta = arccos(hor.x / hor.magnitude())
+  # difference in rotation between horizontal and vertical lines (shear angle)
+  let phi = arccos(ver.y / ver.magnitude()) - theta - (PI/4)
+  return (p - origin).rotate(-theta).shearX(-phi) / (opposite - origin)
+
+proc drawTile(p: PixelPoint2d): Color =
+  let theta = (PI) * (float(tick[]) / 2000)
   let tp = toTexPoint2d(p, (x: 100, y: 80, w: 20, h: 20))
   let center: Vec2[float] = (x: 0, y: 0)
   let vecA: Vec2[float] = (x: sin(theta), y: -cos(theta))
-  let vecB: Vec2[float] = (x: -sin(theta), y: -cos(theta))
+  let vecB: Vec2[float] = (x: -cos(theta), y: -sin(theta))
   let vecC: Vec2[float] = (x: 0, y: 1)
   # segments 1&2, between A and B
   let corA = vecA + vecB
