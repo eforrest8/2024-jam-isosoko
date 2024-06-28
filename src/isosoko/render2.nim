@@ -166,7 +166,7 @@ func isPointInTriangle(c1,c2,c3,p: Vec2[float]): bool =
   let c = 1 - a - b
   return 0 <= a and a <= 1 and 0 <= b and b <= 1 and 0 <= c and c <= 1
 
-func toParallelQuadSpace(p, origin, ver, hor, opposite: Vec2[SomeNumber]): Vec2[SomeNumber] =
+func toParallelQuadSpace(p, origin, ver, hor: Vec2[SomeNumber]): Vec2[SomeNumber] =
   #[
     adapted from code in the following StackOverflow question:
     https://gamedev.stackexchange.com/q/198925
@@ -194,16 +194,13 @@ proc drawTile(p: PixelPoint2d): Color =
   let vecB: Vec2[float] = (x: -cos(theta), y: -sin(theta))
   let vecC: Vec2[float] = (x: 0, y: 1)
   # segments 1&2, between A and B
-  let corA = vecA + vecB
-  if withinUnit(toParallelQuadSpace(tp, center, vecA, vecB, corA)):
+  if withinUnit(toParallelQuadSpace(tp, center, vecA, vecB)):
     return (a: 255, r: 255, g: 0, b: 0)
   # segments 3&4, between B and C
-  let corB = vecB + vecC
-  if withinUnit(toParallelQuadSpace(tp, center, vecC, vecB, corB)):
+  if withinUnit(toParallelQuadSpace(tp, center, vecC, vecB)):
     return (a: 255, r: 0, g: 255, b: 0)
   # segments 5&6, between C and A
-  let corC = vecC + vecA
-  if withinUnit(toParallelQuadSpace(tp, center, vecC, vecA, corC)):
+  if withinUnit(toParallelQuadSpace(tp, center, vecC, vecA)):
     return (a: 255, r: 0, g: 0, b: 255)
   # point not in tile
   return (a: 255, r: 64, g: 64, b: 64)
@@ -222,10 +219,10 @@ proc drawScene*(): void =
 
 when isMainModule:
   let epsilon = 1e-15
-  let sanityNear = toParallelQuadSpace((0.0,0.0), (0.0,0.0), (0.0,1.0), (1.0,0.0), (1.0,1.0))
-  let sanityHor = toParallelQuadSpace((1.0,0.0), (0.0,0.0), (0.0,1.0), (1.0,0.0), (1.0,1.0))
-  let sanityVer = toParallelQuadSpace((0.0,1.0), (0.0,0.0), (0.0,1.0), (1.0,0.0), (1.0,1.0))
-  let sanityFar = toParallelQuadSpace((1.0,1.0), (0.0,0.0), (0.0,1.0), (1.0,0.0), (1.0,1.0))
+  let sanityNear = toParallelQuadSpace((0.0,0.0), (0.0,0.0), (0.0,1.0), (1.0,0.0))
+  let sanityHor = toParallelQuadSpace((1.0,0.0), (0.0,0.0), (0.0,1.0), (1.0,0.0))
+  let sanityVer = toParallelQuadSpace((0.0,1.0), (0.0,0.0), (0.0,1.0), (1.0,0.0))
+  let sanityFar = toParallelQuadSpace((1.0,1.0), (0.0,0.0), (0.0,1.0), (1.0,0.0))
   doAssert(abs(sanityNear.x - 0.0) < epsilon and abs(sanityNear.y - 0.0) < epsilon, $sanityNear)
   doAssert(abs(sanityHor.x - 1.0) < epsilon and abs(sanityHor.y - 0.0) < epsilon, $sanityHor)
   doAssert(abs(sanityVer.x - 0.0) < epsilon and abs(sanityVer.y - 1.0) < epsilon, $sanityVer)
