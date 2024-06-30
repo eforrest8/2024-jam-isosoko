@@ -1,5 +1,6 @@
 import math
 import bitops
+import globals
 
 type
   Color* = tuple[a, r, g, b: uint8]
@@ -7,6 +8,9 @@ type
   Vec3*[T] = tuple[x, y, z: T]
   TexPoint2d* = Vec2[float]
   Renderer* = proc (p: TexPoint2d): Color
+
+const GRID_UNIT*: int = 20
+const GRID_ORIGIN*: tuple[x, y: int] = (CANVAS_WIDTH div 2, CANVAS_HEIGHT - CANVAS_HEIGHT div 10)
 
 func toVec3*[T](v: Vec2[T]): Vec3[T] =
   (x: v.x, y: v.y, z: 1)

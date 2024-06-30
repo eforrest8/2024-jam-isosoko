@@ -6,6 +6,11 @@ import rooms
 import rendertypes
 import voxelloaders
 import logging
+import rtree
+import os
+import std/monotimes
+import malebolgia
+from sdl2 import pushEvent, UserEventPtr, UserEventObj, EventType, Event
 
 type
   PixelPoint2d = Vec2[int]
@@ -19,14 +24,9 @@ type SoftRenderer* = object
   renderLock: AtomicFlag
   buffer*: ptr PixBuf[CANVAS_WIDTH * CANVAS_HEIGHT]
 
-let room: ptr Room = createShared(Room)
+let room: ptr RoomTree = createShared(RoomTree)
 #room[] = loadMagicaVox("testroom.vox")
-room[] = @[
-  Voxel(point: (x: 0, y:1, z:0), faceA: (a: 255, r: 0, g: 0, b: 255), faceB: (a: 255, r: 0, g: 0, b: 255), faceC: (a: 255, r: 0, g: 0, b: 255)),
-  Voxel(point: (x: 1, y:0, z:0), faceA: (a: 255, r: 0, g: 255, b: 0), faceB: (a: 255, r: 0, g: 255, b: 0), faceC: (a: 255, r: 0, g: 255, b: 0)),
-  Voxel(point: (x: 0, y:0, z:0), faceA: (a: 255, r: 255, g: 0, b: 0), faceB: (a: 255, r: 255, g: 0, b: 0), faceC: (a: 255, r: 255, g: 0, b: 0)),
-  Voxel(point: (x: 1, y:1, z:1), faceA: (a: 255, r: 255, g: 255, b: 255), faceB: (a: 255, r: 255, g: 255, b: 255), faceC: (a: 255, r: 255, g: 255, b: 255))
-  ]
+room[] = roomTree(testRoom)
 var sren: ptr SoftRenderer = createShared SoftRenderer
 
 proc setSren*(to: SoftRenderer): void =
@@ -80,75 +80,58 @@ func toParallelQuadSpace(p, origin, ver, hor: Vec2[SomeNumber]): Vec2[SomeNumber
     v = b / c
   return (x: u, y: v)
 
-proc drawTile(p: PixelPoint2d): Color =
-  let theta = (2*PI) * (float(tick[]) / 1000)
-  let tp = toTexPoint2d(p, (x: 100, y: 20, w: 20, h: 20))
-  let center: Vec2[float] = (x: 0, y: 0)
-  let vecA: Vec2[float] = (x: sin(theta), y: -cos(theta))
-  let vecB: Vec2[float] = (x: -cos(theta), y: -sin(theta))
-  let vecC: Vec2[float] = (x: 0, y: 1)
-  # segments 1&2, between A and B
-  if withinUnit(toParallelQuadSpace(tp, center, vecA, vecB)):
-    return (a: 255, r: 255, g: 0, b: 0)
-  # segments 3&4, between B and C
-  if withinUnit(toParallelQuadSpace(tp, center, vecC, vecB)):
-    return (a: 255, r: 0, g: 255, b: 0)
-  # segments 5&6, between C and A
-  if withinUnit(toParallelQuadSpace(tp, center, vecC, vecA)):
-    return (a: 255, r: 0, g: 0, b: 255)
-  # point not in tile
-  return (a: 255, r: 64, g: 64, b: 64)
-
 func drawVoxel(v: Voxel, p: PixelPoint2d): Color =
-  let theta = 1.2
-  let tp = toTexPoint2d(p, (x: CANVAS_WIDTH div 2, y: CANVAS_HEIGHT - CANVAS_HEIGHT div 10, w: 20, h: 20))
-  let height = 0.8
-  let offset = (
-    x: (sin(theta) * float v.point.x) + (-cos(theta) * float v.point.y),
-    y: (-cos(theta) * float v.point.x) + (-sin(theta) * float v.point.y) - (height * float(v.point.z)))
-  let center: Vec2[float] = offset
-  let vecA: Vec2[float] = (x: sin(theta), y: -cos(theta)) + offset
-  let vecB: Vec2[float] = (x: -cos(theta), y: -sin(theta)) + offset
-  let vecC: Vec2[float] = (x: 0.0, y: height) + offset
+  let tp = toTexPoint2d(p, (x: GRID_ORIGIN.x, y: GRID_ORIGIN.y, w: GRID_UNIT, h: GRID_UNIT))
   var ap: Vec2[float]
-  # segments 1&2, between A and B
-  ap = toParallelQuadSpace(tp, center, vecA, vecB)
+  # top, between A and B
+  ap = toParallelQuadSpace(tp, v.canvasPos.center, v.canvasPos.vecA, v.canvasPos.vecB)
   if withinUnit(ap):
     return v.faceA.darken(if ap.x < 0.1 or ap.y < 0.1 or ap.x > 0.9 or ap.y > 0.9: 128 else: 0)
-  # segments 3&4, between B and C
-  ap = toParallelQuadSpace(tp, center, vecC, vecB)
+  # darker side, between B and C
+  ap = toParallelQuadSpace(tp, v.canvasPos.center, v.canvasPos.vecC, v.canvasPos.vecB)
   if withinUnit(ap):
     return v.faceC.darken(if ap.x < 0.1 or ap.y < 0.1 or ap.x > 0.9 or ap.y > 0.9: 128 else: 64)
-  # segments 5&6, between C and A
-  ap = toParallelQuadSpace(tp, center, vecC, vecA)
+  # lighter side, between C and A
+  ap = toParallelQuadSpace(tp, v.canvasPos.center, v.canvasPos.vecC, v.canvasPos.vecA)
   if withinUnit(ap):
     return v.faceB.darken(if ap.x < 0.1 or ap.y < 0.1 or ap.x > 0.9 or ap.y > 0.9: 128 else: 32)
-  
   # point not in tile
   return (a: 0, r: 64, g: 64, b: 64)
 
-proc drawRoom(room: Room, p: PixelPoint2d): Color =
+proc drawRoom(room: RoomTree, p: PixelPoint2d): Color =
   result = (a: 0, r: 64, g: 64, b: 64)
-  for voxel in room.items:
-    let color = drawVoxel(voxel, p)
+  let found = room.search([(a: float p.x, b: float p.x), (a: float p.y, b: float p.y)])
+  for res in found:
+    let color = drawVoxel(res.l, p)
     if color.a > 0:
       result = color
 
 proc drawScene*(): void {.gcsafe.} =
-  let logger = newConsoleLogger()
+  var m = createMaster()
+  #let logger = newConsoleLogger()
   #debug "drawing frame ", sren[].currentFrame
   if sren[].renderLock.testAndSet():
     #logger.log(lvlDebug, "ignoring draw request...")
     return
   var pixels = sren[].buffer
-  for i in pixels[].low..pixels[].high:
-    let x = i mod CANVAS_WIDTH
-    let y = i div CANVAS_WIDTH
-    pixels[][i] = toARGB(drawRoom(room[], (x: x, y: y)))
-    #pixels[][i] = toARGB(drawTile((x: x, y: y)))
-    #pixels[][i] = toARGB((a: uint8 255, r: uint8 64, g: uint8 64, b: uint8 64))
-    #pixels[][i] = uint32 0xffaaaaaa
+  m.awaitAll:
+    for i in pixels[].low..pixels[].high:
+      let x = i mod CANVAS_WIDTH
+      let y = i div CANVAS_WIDTH
+      m.spawn toARGB(drawRoom(room[], (x: x, y: y))) -> pixels[][i]
+      #pixels[][i] = toARGB(drawTile((x: x, y: y)))
+      #pixels[][i] = toARGB((a: uint8 255, r: uint8 64, g: uint8 64, b: uint8 64))
+      #pixels[][i] = uint32 0xffaaaaaa
+  let ev: UserEventPtr = create UserEventObj
+  ev[].kind = UserEvent
+  ev[].code = 0
+  discard pushEvent(cast [ptr Event](ev))
   sren[].renderLock.clear()
+
+proc renderLoop*(): void =
+  while true:
+    drawScene()
+    os.sleep(10)
 
 when isMainModule:
   let epsilon = 1e-15

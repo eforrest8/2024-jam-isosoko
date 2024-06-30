@@ -3,8 +3,6 @@ import sdlcanvas
 import globals
 import logging
 import render2
-import os
-import malebolgia
 
 type
   UserEventType = enum
@@ -19,8 +17,8 @@ proc createUserEvent(code: UserEventType): ptr Event =
   return cast [ptr Event](ev)
 
 proc handleEvents(canvas: ptr SDLCanvas): void =
-  var m = createMaster()
   var go = true
+  #m.spawn renderLoop()
   while go:
     var event: Event
     if waitEvent(event):
@@ -32,7 +30,6 @@ proc handleEvents(canvas: ptr SDLCanvas): void =
           let uev: UserEventObj = cast[UserEventPtr](addr event)[]
           case uev.code:
             of int32(FrameEvent):
-              m.spawn drawScene()
               updateTexture(canvas[].texture, nil, canvas[].buffer, CANVAS_WIDTH * PIXEL_SIZE)
               clear(canvas[].renderer)
               copy(canvas[].renderer, canvas[].texture, nil, nil)
@@ -59,24 +56,24 @@ proc start*(): void =
   drawActive[] = true
   proc scheduleDraw(active: ptr bool): void {.thread, nimcall.}=
     while active[]:
-      sleep(33)
-      discard pushEvent(createUserEvent(FrameEvent))
-  var tickThread: Thread[ptr int]
-  let tickRate = create int
+      delay(50)
+      drawScene()
+  var tickThread: Thread[ptr uint32]
+  let tickRate = create uint32
   tickRate[] = 50
-  proc scheduleTick(rate: ptr int): void {.thread, nimcall.}=
+  proc scheduleTick(rate: ptr uint32): void {.thread, nimcall.}=
     while rate[] > 0:
-      sleep(rate[])
+      delay(rate[])
       discard pushEvent(createUserEvent(PhysicsEvent))
   createThread(drawThread, scheduleDraw, drawActive)
-  createThread(tickThread, scheduleTick, tickRate)
+  #createThread(tickThread, scheduleTick, tickRate)
   handleEvents canvas # runs until quit
   destroyCanvas canvas
   cleanupGlobals()
   drawActive[] = false
   joinThread drawThread
   dealloc drawActive
-  joinThread tickThread
+  #joinThread tickThread
   dealloc tickRate
   deallocShared tick
   info "canvas destroyed"
