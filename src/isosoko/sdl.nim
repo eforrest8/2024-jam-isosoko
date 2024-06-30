@@ -6,8 +6,6 @@ import render2
 import os
 import malebolgia
 
-addHandler newConsoleLogger()
-
 type
   UserEventType = enum
     FrameEvent, PhysicsEvent
@@ -65,7 +63,7 @@ proc start*(): void =
       discard pushEvent(createUserEvent(FrameEvent))
   var tickThread: Thread[ptr int]
   let tickRate = create int
-  tickRate[] = 10
+  tickRate[] = 50
   proc scheduleTick(rate: ptr int): void {.thread, nimcall.}=
     while rate[] > 0:
       sleep(rate[])

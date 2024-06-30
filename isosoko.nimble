@@ -5,6 +5,7 @@ author        = "Ethan Forrest"
 description   = "isometric sokoban"
 license       = "MIT"
 srcDir        = "src"
+binDir        = "out"
 bin = @["main"]
 namedBin["main"] = "isosoko"
 

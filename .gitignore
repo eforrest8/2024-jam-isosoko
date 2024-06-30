@@ -1,5 +1,6 @@
 nimbledeps/
 nimcache/
+out/
 *.exe
 *.dll
 /README-SDL.txt
