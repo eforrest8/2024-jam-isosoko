@@ -3,10 +3,14 @@ import sdlcanvas
 import globals
 import logging
 import render2
+import malebolgia
+import options
 
 type
   UserEventType = enum
     FrameEvent, PhysicsEvent
+
+const THREADS_ENABLED = true
 
 let userEventKind = registerEvents(1)
 
@@ -55,9 +59,15 @@ proc start*(): void =
   let drawActive = create bool
   drawActive[] = true
   proc scheduleDraw(active: ptr bool): void {.thread, nimcall.}=
+    var m = createMaster()
     while active[]:
-      delay(50)
-      drawScene()
+      delay(100)
+      when THREADS_ENABLED:
+        m.awaitAll:
+          drawScene(some(getHandle(m)))
+      else:
+        drawScene()
+      discard pushEvent(createUserEvent(FrameEvent))
   var tickThread: Thread[ptr uint32]
   let tickRate = create uint32
   tickRate[] = 50

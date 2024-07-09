@@ -1,0 +1,7 @@
+total render time: 2 seconds, 722 milliseconds, 567 microseconds, and 900 nanoseconds
+sum of pixel times: 2 seconds, 664 milliseconds, 487 microseconds, and 100 nanoseconds
+highest pixel time: 1 millisecond, 126 microseconds, and 500 nanoseconds
+  highest pixel's id': 15648
+lowest pixel time: 10 microseconds and 500 nanoseconds
+mean pixel time: 34 microseconds and 693 nanoseconds
+median pixel time: 24 microseconds and 900 nanoseconds
