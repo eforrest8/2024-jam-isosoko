@@ -10,7 +10,7 @@ type
   UserEventType = enum
     FrameEvent, PhysicsEvent
 
-const THREADS_ENABLED = true
+const THREADS_ENABLED = false
 
 let userEventKind = registerEvents(1)
 

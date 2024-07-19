@@ -24,7 +24,7 @@ type SoftRenderer* = object
 
 let room: ptr Room = createShared(Room)
 #room[] = loadMagicaVox("testroom.vox")
-room[] = testRoom2
+room[] = testRoom
 let room2: ptr Room = createShared(Room)
 room2[] = testRoom3
 var sren: ptr SoftRenderer = createShared SoftRenderer
@@ -43,7 +43,7 @@ proc cleanupGlobals*(): void =
   indicate intersection outside the line segment.
 ]##
 func fastLineIntersection(x1,x2,x3,x4, y1,y2,y3,y4: float32): Vec2[float32] =
-  var buf = [
+  #[var buf = [
     x1, x1, y1, y1,
     x2, x3, y2, y3,
     y3, y3, x3, x3,
@@ -79,7 +79,7 @@ func fastLineIntersection(x1,x2,x3,x4, y1,y2,y3,y4: float32): Vec2[float32] =
   #[
     -, x, -, -y
   ]#
-  return (x: buf[1], y: -buf[3])
+  return (x: buf[1], y: -buf[3])]#
   #[else:
     let
       x1m2 = x1-x2
@@ -92,6 +92,9 @@ func fastLineIntersection(x1,x2,x3,x4, y1,y2,y3,y4: float32): Vec2[float32] =
     return (
       x: (x1m3 * y3m4 - y1m3 * x3m4) / d,
       y: -(x1m2 * y1m3 - y1m2 * x1m3) / d)]#
+  return (
+      x: ((x1-x3) * (y3-y4) - (y1-y3) * (x3-x4)) / ((x1-x2) * (y3-y4) - (y1-y2) * (x3-x4)),
+      y: -((x1-x2) * (y1-y3) - (y1-y2) * (x1-x3)) / ((x1-x2) * (y3-y4) - (y1-y2) * (x3-x4)))
 
 func fastLineIntersection(p,r,q,s: Vec2[float32]): Vec2[float32] {.inline.} =
   fastLineIntersection(p.x, r.x, q.x, s.x, p.y, r.y, q.y, s.y)
@@ -133,10 +136,20 @@ func drawVoxel(v: Voxel, p: PixelPoint2d): Color =
   # point not in tile
   return (a: 0, r: 64, g: 64, b: 64)
 
-proc drawRoom(room: Room, p: PixelPoint2d): Color =
+func minOf[T](nums: varargs[T]): T =
+  result = nums[0]
+  for n in nums:
+    result = min(n, result)
+
+func maxOf[T](nums: varargs[T]): T =
+  result = nums[0]
+  for n in nums:
+    result = max(n, result)
+
+proc drawRoom(room: ptr Room, p: PixelPoint2d): Color =
   #var found: seq[L[2, system.float, rooms.Voxel]] = room.search([(a: float p.x, b: float p.x), (a: float p.y, b: float p.y)])
   #sort(found, proc (x, y: L[2, system.float, rooms.Voxel]): int {.closure.}= cmp(x.l, y.l))
-  for res in room:
+  for res in room[]:
     let color = drawVoxel(res, p)
     if color.a > 0:
       return color
@@ -151,13 +164,13 @@ proc drawScene*(mo: Option[MasterHandle] = none(MasterHandle)): void {.gcsafe.} 
     for i in pixels[].low..pixels[].high:
       let x = i mod CANVAS_WIDTH
       let y = i div CANVAS_WIDTH
-      pixels[][i] = toARGB(drawRoom(curRoom[], (x: x, y: y)))
+      pixels[][i] = toARGB(drawRoom(curRoom, (x: x, y: y)))
   else:
     let mh = mo.get()
     for i in pixels[].low..pixels[].high:
       let x = i mod CANVAS_WIDTH
       let y = i div CANVAS_WIDTH
-      mh.spawn toARGB(drawRoom(curRoom[], (x: x, y: y))) -> pixels[][i]
+      mh.spawn toARGB(drawRoom(curRoom, (x: x, y: y))) -> pixels[][i]
   tick[] += 1
   sren[].renderLock.clear()
 
