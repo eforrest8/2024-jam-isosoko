@@ -15,7 +15,7 @@ __kernel void color_at(
   __global uchar* tex,
   __global Drawable* drw,
   int drwCount,
-  __global uchar* out,
+  __global uint* out,
   int v_width,
   int v_height
 ) {
@@ -23,26 +23,20 @@ __kernel void color_at(
   if (idx < v_width*v_height) {
     float x = (float)(idx % v_width);
     float y = (float)(idx / v_width);
-    int pidx = idx*4;
-    out[pidx] = (uchar)255;
-    out[pidx+1] = (uchar)0;
-    out[pidx+2] = (uchar)255;
-    out[pidx+3] = (uchar)255;
+    int pidx = idx;
+    out[pidx] = (uint)0xFF333333;
     for (int didx = 0; didx < drwCount; didx++) {
       int doff = didx;
       Drawable drwCur = drw[doff];
       float d = ((drwCur.cX - (drwCur.cX + drwCur.bX)) * (y - (y - drwCur.aY)) - (drwCur.cY - (drwCur.cY + drwCur.bY)) * (x - (x - drwCur.aX)));
       float u = ((drwCur.cX - x) * (y - (y - drwCur.aY)) - (drwCur.cY - y) * (x - (x - drwCur.aX))) / d;
       float v = -((drwCur.cX - (drwCur.cX + drwCur.bX)) * (drwCur.cY - y) - (drwCur.cY - (drwCur.cY + drwCur.bY)) * (drwCur.cX - x)) / d;
-      if (u >= 0 && 1 > u && v >= 0 && 1 > v) {
-        int texelX = trunc(u*3 + 0.5);
-        int texelY = trunc(v*3 + 0.5);
+      if (u > 0 && 1 > u && v > 0 && 1 > v) {
+        int texelX = trunc(u*4);
+        int texelY = trunc(v*4);
         int colIdx = ((drwCur.tex_id*16) + texelX + (texelY*4)) * 4;
         //printf("at x: %f, y: %f with texelX: %d, texelY: %d and tex_id: %d\nmapped to colIdx: %d", x, y, texelX, texelY, drwCur.tex_id, colIdx);
-        out[pidx+3] = tex[colIdx];    // A
-        out[pidx] = tex[colIdx+1];    // R
-        out[pidx+1] = tex[colIdx+2];  // G
-        out[pidx+2] = tex[colIdx+3];  // B
+        out[pidx] = tex[colIdx] << 24 | tex[colIdx+1] << 16 | tex[colIdx+2] << 8 | tex[colIdx+3];
         /*out[pidx] = floor(u*255);    // R
         out[pidx+1] = floor(v*255);  // G
         out[pidx+2] = drwCur.tex_id*255;  // B

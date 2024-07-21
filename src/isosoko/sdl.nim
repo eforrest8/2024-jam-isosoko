@@ -2,9 +2,7 @@ import sdl2
 import sdlcanvas
 import globals
 import logging
-import render2
-import malebolgia
-import options
+import cl/cl
 
 type
   UserEventType = enum
@@ -16,7 +14,7 @@ let userEventKind = registerEvents(1)
 
 proc createUserEvent(code: UserEventType): ptr Event =
   let ev: UserEventPtr = create UserEventObj
-  ev[].kind = EventType(userEventKind)
+  ev[].kind = EventType.UserEvent
   ev[].code = int32(code)
   return cast [ptr Event](ev)
 
@@ -34,6 +32,7 @@ proc handleEvents(canvas: ptr SDLCanvas): void =
           let uev: UserEventObj = cast[UserEventPtr](addr event)[]
           case uev.code:
             of int32(FrameEvent):
+              drawScene()
               updateTexture(canvas[].texture, nil, canvas[].buffer, CANVAS_WIDTH * PIXEL_SIZE)
               clear(canvas[].renderer)
               copy(canvas[].renderer, canvas[].texture, nil, nil)
@@ -59,15 +58,10 @@ proc start*(): void =
   let drawActive = create bool
   drawActive[] = true
   proc scheduleDraw(active: ptr bool): void {.thread, nimcall.}=
-    var m = createMaster()
     while active[]:
       delay(100)
-      when THREADS_ENABLED:
-        m.awaitAll:
-          drawScene(some(getHandle(m)))
-      else:
-        drawScene()
       discard pushEvent(createUserEvent(FrameEvent))
+    releaseRenderer()
   var tickThread: Thread[ptr uint32]
   let tickRate = create uint32
   tickRate[] = 50
